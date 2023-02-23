@@ -1,60 +1,57 @@
 import rclpy
 from rclpy.node import Node
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
 
-from std_msgs.msg import String
-from geometry_msgs.msg import Twist # topic is of type Twist
-from turtlesim.msg import Color # topic uses Color type
+class MyNode(Node):
 
+    turtle_x = 0
+    turtle_y = 0 
+    turtle_theta = 0
 
-class MinimalPublisher(Node):
+    target_x = 8
+    target_y = 5.544445
+    target_theta = 0
 
-    def __init__(self):
-        super().__init__('turtle_draw')
-        # create publisher to topic cmd_vel
-        self.publisher_ = self.create_publisher(Twist, '/turtle1/cmd_vel', 10)
-        timer_period = 0.5  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback)
-
-        # create subscriber to color_sensor
-        self.subscription = self.create_subscription(
-            Color,
-            '/turtle1/color_sensor',
-            self.listener_callback,
-            10)
-        self.subscription  # prevent unused variable warning
-
+    kp = 1
     
-
+    def __init__(self, node_name):
+        super().__init__(node_name)
+        self.publisher_ = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)  # publish Twist message to cmd_vel topic
+        timer_delay = 0.1
+        self.timer = self.create_timer(timer_delay, self.timer_callback)  # publisher callback executes every one second
+        self.subscription = self.create_subscription(Pose, "/turtle1/pose", self.listener_callback, 10)    # listen to color sensor topic for Color message
+    
     def timer_callback(self):
+        # initialize message and change linear/angular velocity
         msg = Twist()
-        # set linear velocity to make turtle go straight
-        msg.linear.x = 2.0
-        msg.linear.y = 0.0
-        msg.linear.z = 0.0
-        # set angular velocity to have slight turn
-        msg.angular.x = 0.0
-        msg.angular.y = 0.0
-        msg.angular.z = -2.0
-        self.publisher_.publish(msg)
+        # msg.linear.x = 2.0
+        # msg.angular.z = 1.0
 
+        error_x = self.turtle_x - self.target_x
+        print(error_x)
+        msg.linear.x = -self.kp * error_x
+
+        # print(f"Message Received - x: {self.turtle_x}, y: {self.turtle_y}, theta: {self.turtle_theta}")
+        
+        self.publisher_.publish(msg)    # publish the message
+    
     def listener_callback(self, msg):
-        # log msg recieved
-        self.get_logger().info(f'Color: r: {msg.r}, g: {msg.g}, b: {msg.b}')
-
-
+        self.turtle_x = msg.x
+        self.turtle_y = msg.y
+        self.turtle_theta = msg.theta
+        # self.get_logger().info(f"Message Received - x: {msg.x}, y: {msg.y}, theta: {msg.theta}")  # output message to console
+        
 def main(args=None):
     rclpy.init(args=args)
-
-    minimal_publisher = MinimalPublisher()
-
-    rclpy.spin(minimal_publisher)
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    minimal_publisher.destroy_node()
+    
+    # create node and spin
+    my_node = MyNode("pub_sub_node")
+    rclpy.spin(my_node)
+    
+    # destory node and shut down application
+    my_node.destroy_node()
     rclpy.shutdown()
-
-
-if __name__ == '__main__':
+    
+if __name__ == "__main__":
     main()
