@@ -3,17 +3,22 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from turtlesim.msg import Pose
 
+from math import *
+
 class MyNode(Node):
 
     turtle_x = 0
     turtle_y = 0 
     turtle_theta = 0
 
-    points = [(5.544445, 5.544445), (8, 6), (4, 3), (2, 9), (9, 9), (10, 1)]
+    points = [(5.544445, 5.544445), (5, 8), (4, 3), (2, 9), (9, 9), (10, 1)]
     current_target = 1
 
+    rotate = True
+    translate = False
+
     error_thresh = 0.01
-    kp = 2.0
+    kp = 1.0
     
     def __init__(self, node_name):
         super().__init__(node_name)
@@ -30,14 +35,30 @@ class MyNode(Node):
         msg = Twist()
 
         target = self.points[self.current_target]
-        error_x = self.turtle_x - target[0]
-        error_y = self.turtle_y - target[1]
 
-        msg.linear.x = -self.kp * error_x
-        msg.linear.y = -self.kp * error_y
+        if self.rotate:
+            angle = atan2(target[1] - self.turtle_y, target[0] - self.turtle_x)
+            error = self.turtle_theta - angle
+            msg.angular.z = -self.kp * error
 
-        if max(abs(error_x), abs(error_y)) < self.error_thresh:
-            self.current_target += 1
+            print(f"ERROR: {error}")
+
+            if abs(error) < self.error_thresh:
+                print("ending rotation")
+                self.rotate = False
+
+        else:
+            error_x = self.turtle_x - target[0]
+            error_y = self.turtle_y - target[1]
+            error = -((error_x) ** 2 + (error_y) ** 2) ** 0.5
+            msg.linear.x = -self.kp * error
+
+            print(f"ERROR: {error}")
+
+            if abs(error) < self.error_thresh:
+                print("ending translation")
+                self.rotate = True
+                self.current_target += 1
 
         # print(f"Message Received - x: {self.turtle_x}, y: {self.turtle_y}, theta: {self.turtle_theta}")
         
