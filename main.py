@@ -9,11 +9,11 @@ class MyNode(Node):
     turtle_y = 0 
     turtle_theta = 0
 
-    target_x = 8
-    target_y = 5.544445
-    target_theta = 0
+    points = [(5.544445, 5.544445), (8, 6), (4, 3), (2, 9), (9, 9), (10, 1)]
+    current_target = 1
 
-    kp = 1
+    error_thresh = 0.01
+    kp = 2.0
     
     def __init__(self, node_name):
         super().__init__(node_name)
@@ -23,14 +23,21 @@ class MyNode(Node):
         self.subscription = self.create_subscription(Pose, "/turtle1/pose", self.listener_callback, 10)    # listen to color sensor topic for Color message
     
     def timer_callback(self):
+        if self.current_target == len(self.points):
+            return
+
         # initialize message and change linear/angular velocity
         msg = Twist()
-        # msg.linear.x = 2.0
-        # msg.angular.z = 1.0
 
-        error_x = self.turtle_x - self.target_x
-        print(error_x)
+        target = self.points[self.current_target]
+        error_x = self.turtle_x - target[0]
+        error_y = self.turtle_y - target[1]
+
         msg.linear.x = -self.kp * error_x
+        msg.linear.y = -self.kp * error_y
+
+        if max(abs(error_x), abs(error_y)) < self.error_thresh:
+            self.current_target += 1
 
         # print(f"Message Received - x: {self.turtle_x}, y: {self.turtle_y}, theta: {self.turtle_theta}")
         
