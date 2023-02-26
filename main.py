@@ -15,16 +15,19 @@ class MyNode(Node):
     current_target = 1
 
     rotate = True
-    translate = False
+    rot_vel = 0
 
-    error_thresh = 0.01
-    kp = 1.0
+    timer_delay = 0.1
+
+    rotate_error_thresh = 0.0001
+    translate_error_thresh = 0.01
+    kp = 3.0
     
     def __init__(self, node_name):
         super().__init__(node_name)
         self.publisher_ = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)  # publish Twist message to cmd_vel topic
-        timer_delay = 0.1
-        self.timer = self.create_timer(timer_delay, self.timer_callback)  # publisher callback executes every one second
+        # timer_delay = 0.1
+        self.timer = self.create_timer(self.timer_delay, self.timer_callback)  # publisher callback executes every one second
         self.subscription = self.create_subscription(Pose, "/turtle1/pose", self.listener_callback, 10)    # listen to color sensor topic for Color message
     
     def timer_callback(self):
@@ -39,12 +42,13 @@ class MyNode(Node):
         if self.rotate:
             angle = atan2(target[1] - self.turtle_y, target[0] - self.turtle_x)
             error = self.turtle_theta - angle
-            msg.angular.z = -self.kp * error
+            msg.angular.z = -self.kp * error    
 
             print(f"ERROR: {error}")
 
-            if abs(error) < self.error_thresh:
+            if abs(error) < self.rotate_error_thresh:
                 print("ending rotation")
+                self.rot_vel = 0
                 self.rotate = False
 
         else:
@@ -55,7 +59,7 @@ class MyNode(Node):
 
             print(f"ERROR: {error}")
 
-            if abs(error) < self.error_thresh:
+            if abs(error) < self.translate_error_thresh:
                 print("ending translation")
                 self.rotate = True
                 self.current_target += 1
