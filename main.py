@@ -20,6 +20,8 @@ class MyNode(Node):
     turtle_theta = 0
 
     points = []         # list of waypoints for navigation
+    pen_up = [0, 17, 38, 42, 68]     # list of waypoint indices that requires the pen to be picked up
+    pen_down = [1, 18, 39, 43]   # list of waypoint indices that requires the pen to be put back down
     current_target = 0  # index of the target point in the list
 
     rotate = True   # state control variable for rotating vs. translating
@@ -36,26 +38,28 @@ class MyNode(Node):
 
         super().__init__(node_name)
 
-        # change background color
-        pen_client = self.create_client(SetPen, '/turtle1/set_pen')
+        # change pen color / width
+        self.pen_client = self.create_client(SetPen, '/turtle1/set_pen') # connect to set_pen service
 
+        # build request
         request = SetPen.Request()
         request.r = 255
         request.g = 255
         request.b = 255
         request.width = 5
+        # call request
+        self.pen_client.call_async(request)
 
-        pen_client.call_async(request)
+        # change background color
+        bg_client = self.create_client(SetParameters, '/turtlesim/set_parameters') # connect to set_parameters service
 
-
-        bg_client = self.create_client(SetParameters, '/turtlesim/set_parameters')
-
+        # build request
         request = SetParameters.Request()
         request.parameters = []
         request.parameters.append(Parameter(name='background_r', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=80)))
         request.parameters.append(Parameter(name='background_g', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=0)))
         request.parameters.append(Parameter(name='background_b', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=0)))
-
+        # call request
         bg_client.call_async(request).add_done_callback(self.pub_sub_callback)
 
     def pub_sub_callback(self, future):
@@ -74,6 +78,14 @@ class MyNode(Node):
 
         # get target point
         target = self.points[self.current_target]
+
+        # if the current target index matches with pen_up or pen_down, lift / drop pen
+        if len(self.pen_up) > 0 and self.current_target == self.pen_up[0]:
+            self.lift()
+            self.pen_up.pop(0)
+        if len(self.pen_down) > 0 and self.current_target == self.pen_down[0]:
+            self.draw()
+            self.pen_down.pop(0)
 
         if self.rotate:
             # calculate target angle and set pid
@@ -110,8 +122,31 @@ class MyNode(Node):
         self.turtle_x = msg.x
         self.turtle_y = msg.y
         self.turtle_theta = msg.theta
+
+    # make request to set_pen service to lift pen
+    def lift(self):
+        print('lifting pen')
+        request = SetPen.Request()
+        request.r = 255
+        request.g = 255
+        request.b = 255
+        request.width = 5
+        request.off = 1
+        self.pen_client.call_async(request)
+
+    # make request to set_pen service to drop pen
+    def draw(self):
+        print('drawing')
+        request = SetPen.Request()
+        request.r = 255
+        request.g = 255
+        request.b = 255
+        request.width = 5
+        request.off = 0
+        self.pen_client.call_async(request)
         
 def main(args=None):
+    print('start')
     rclpy.init(args=args)
     
     # create node and spin
