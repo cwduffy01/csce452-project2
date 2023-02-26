@@ -3,16 +3,27 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from turtlesim.msg import Pose
 
+from rcl_interfaces.msg import Parameter
+from rcl_interfaces.srv import SetParameters
+from rcl_interfaces.msg import ParameterType
+from rcl_interfaces.msg import ParameterValue
+
+from turtlesim.srv import SetPen
+
+import json
 from math import *
 
 class MyNode(Node):
+
+    max_x = 11.088889122009277
+    max_y = 11.088889122009277
 
     turtle_x = 0
     turtle_y = 0 
     turtle_theta = 0
 
-    points = [(5.544445, 5.544445), (5, 8), (4, 3), (2, 9), (9, 9), (10, 1)]
-    current_target = 1
+    points = []
+    current_target = 0
 
     rotate = True
     rot_vel = 0
@@ -24,11 +35,39 @@ class MyNode(Node):
     kp = 3.0
     
     def __init__(self, node_name):
+        with open("points.json", 'r') as f:
+            self.points = json.load(f)
+
         super().__init__(node_name)
+
+        # change background color
+        pen_client = self.create_client(SetPen, '/turtle1/set_pen')
+
+        request = SetPen.Request()
+        request.r = 255
+        request.g = 255
+        request.b = 255
+        request.width = 5
+
+        pen_client.call_async(request)
+
+
+        bg_client = self.create_client(SetParameters, '/turtlesim/set_parameters')
+
+        request = SetParameters.Request()
+        request.parameters = []
+        request.parameters.append(Parameter(name='background_r', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=80)))
+        request.parameters.append(Parameter(name='background_g', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=0)))
+        request.parameters.append(Parameter(name='background_b', value=ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=0)))
+
+        bg_client.call_async(request).add_done_callback(self.pub_sub_callback)
+
+    def pub_sub_callback(self, future):
         self.publisher_ = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)  # publish Twist message to cmd_vel topic
         # timer_delay = 0.1
         self.timer = self.create_timer(self.timer_delay, self.timer_callback)  # publisher callback executes every one second
         self.subscription = self.create_subscription(Pose, "/turtle1/pose", self.listener_callback, 10)    # listen to color sensor topic for Color message
+
     
     def timer_callback(self):
         if self.current_target == len(self.points):
@@ -79,10 +118,20 @@ def main(args=None):
     
     # create node and spin
     my_node = MyNode("pub_sub_node")
+
+    # executor = rclpy.executors.MultiThreadedExecutor()
+    # executor.add_node(my_node)
+    # executor.add_node(params)
+    # executor_thread = threading.Thread(target=executor.spin, daemon=True)
+    # executor_thread.start()
+
+
+    # rclpy.spin(params)
     rclpy.spin(my_node)
     
     # destory node and shut down application
     my_node.destroy_node()
+
     rclpy.shutdown()
     
 if __name__ == "__main__":
