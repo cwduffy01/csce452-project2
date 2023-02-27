@@ -77,6 +77,7 @@ class MyNode(Node):
     def timer_callback(self):
         # leave function if there are no points left
         if self.current_target == len(self.points):
+            exit()
             return
 
         # initialize message to send
