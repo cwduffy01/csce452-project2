@@ -9,6 +9,7 @@ from rcl_interfaces.msg import ParameterType
 from rcl_interfaces.msg import ParameterValue
 
 from turtlesim.srv import SetPen
+from std_srvs.srv import Empty
 
 import json
 from math import *
@@ -37,6 +38,11 @@ class MyNode(Node):
             self.points = json.load(f)
 
         super().__init__(node_name)
+
+        # clear previous drawings
+        clear_client = self.create_client(Empty, '/clear')
+        request = Empty.Request()
+        clear_client.call_async(request)
 
         # change pen color / width
         self.pen_client = self.create_client(SetPen, '/turtle1/set_pen') # connect to set_pen service
